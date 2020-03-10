@@ -20,21 +20,6 @@ except ImportError:
     HTTP_ERROR_CODES = {}
 
 
-def extract_match_groups(match):
-    '''Return the available match groups of a ure match object
-    as a list'''
-    groups = []
-    i = 1
-    while True:
-        try:
-            groups.append(match.group(i))
-            i += 1
-        except IndexError:
-            break
-
-    return groups
-
-
 class HTTPError(Exception):
     '''Request handlers may raise an HTTPError in order to send
     an HTTP error response to the client.
@@ -209,7 +194,7 @@ class Noggin():
     def _handle_request(self, req):
         handler, match = self.match(req.uri, req.method)
         if handler:
-            groups = extract_match_groups(match)
+            groups = match.groups()
 
             try:
                 ret = handler(req, *groups)
