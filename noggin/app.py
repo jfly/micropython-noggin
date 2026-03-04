@@ -1,5 +1,7 @@
+import sys
 import json
 import socket
+import traceback
 
 # monkeypatch the standard socket module when running
 # under cpython.
@@ -78,14 +80,6 @@ class Request():
 
     def send_response(self, *args, **kwargs):
         self.app.send_response(self.raw, *args, **kwargs)
-
-    def close(self):
-        print('* closing request')
-        if self.raw:
-            self.raw.close()
-            self.raw = None
-
-        self._cached = None
 
     def _read_n_bytes(self, want):
         have = 0
@@ -167,14 +161,19 @@ class Noggin():
         print('* handling connection from {}:{}'.format(*addr))
 
         req = client.readline()
-        method_uri = req.split()
-        if len(method_uri) != 2:
+        split_req_line = req.split()
+        if len(split_req_line) == 3:
+            method, uri, version = split_req_line
+        elif len(split_req_line) == 2:
+            method, uri = split_req_line
+            # No explicit version? Treat it as HTTP/1.0
+            version = b'HTTP/1.0'
+        else:
             msg = "Invalid request line: {}".format(req)
             self.send_response(client, 500, 'Exception',
                                content=msg)
             raise Exception(msg)
 
-        method, uri, version = (method_uri + [b'HTTP/1.0'])[:3]
         headers = {}
 
         while True:
@@ -195,8 +194,6 @@ class Noggin():
             self.send_response(client, 500, 'Exception',
                                content=str(err))
             raise
-        finally:
-            reqobj.close()
 
     def _handle_request(self, req):
         handler, match = self.match(req.uri, req.method)
@@ -276,6 +273,11 @@ class Noggin():
                 except OSError as err:
                     print('! error handling client {}:{}: {}'.format(
                         addr[0], addr[1], err))
+                except Exception as e:
+                    print("Unexpected error while handling request: {}".format(e))
+                    traceback.print_exception(*sys.exc_info())
+                finally:
+                    client.close()
         finally:
             self.close()
 
