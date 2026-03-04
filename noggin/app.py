@@ -167,7 +167,14 @@ class Noggin():
         print('* handling connection from {}:{}'.format(*addr))
 
         req = client.readline()
-        method, uri, version = (req.split() + [b'HTTP/1.0'])[:3]
+        method_uri = req.split()
+        if len(method_uri) != 2:
+            msg = "Invalid request line: {}".format(req)
+            self.send_response(client, 500, 'Exception',
+                               content=msg)
+            raise Exception(msg)
+
+        method, uri, version = (method_uri + [b'HTTP/1.0'])[:3]
         headers = {}
 
         while True:
